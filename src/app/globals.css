@@ -3,6 +3,19 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --umd-red: #e21833;
+  --umd-dark-red: #a51323;
+  --umd-darker-red: #8c0f1d;
+  --umd-darkest-red: #630a14;
+  --umd-gold: #ffd200;
+  --umd-black: #0e0e0e;
+  --chat-bot-bg: #1c1c1c;
+  --chat-user-bg: linear-gradient(135deg, #9a1120, #6b0c17);
+  --chat-bot-text: #ffffff;
+  --chat-user-text: #ffffff;
+  --header-bg: linear-gradient(90deg, #630a14, #a51323);
+  --input-bg: #111111;
+  --footer-bg: #0a0a0a;
 }
 
 @theme inline {
@@ -20,7 +33,163 @@
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(to bottom, #0e0e0e, #000000);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+}
+
+.message-bubble {
+  border-radius: 1rem;
+  padding: 0.85rem 1.1rem;
+  max-width: 80%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.bot-message {
+  background-color: var(--chat-bot-bg);
+  color: var(--chat-bot-text);
+  border-top-left-radius: 0.25rem;
+  border-left: 2px solid var(--umd-gold);
+}
+
+.user-message {
+  background: var(--chat-user-bg);
+  color: var(--chat-user-text);
+  border-top-right-radius: 0.25rem;
+}
+
+.header-gradient {
+  background: var(--header-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.footer-gradient {
+  background: var(--footer-bg);
+}
+
+/* Markdown styles */
+.markdown-content {
+  color: inherit;
+  line-height: 1.4;
+}
+
+.markdown-content p {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 0.7rem;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.markdown-content h1 {
+  font-size: 1.5rem;
+}
+
+.markdown-content h2 {
+  font-size: 1.35rem;
+}
+
+.markdown-content h3 {
+  font-size: 1.2rem;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-left: 1.2rem;
+  margin-bottom: 0.4rem;
+  margin-top: 0.1rem;
+  line-height: 1.2;
+  padding-left: 0.3rem;
+}
+
+.markdown-content ul {
+  list-style-type: disc;
+}
+
+.markdown-content ol {
+  list-style-type: decimal;
+}
+
+.markdown-content li {
+  margin-bottom: 0.05rem;
+  padding-left: 0.1rem;
+}
+
+.markdown-content li p {
+  margin-bottom: 0.1rem;
+  display: inline-block;
+}
+
+.markdown-content li:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content a {
+  color: var(--umd-gold);
+  text-decoration: underline;
+}
+
+.markdown-content code {
+  font-family: monospace;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 0.15rem 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+
+.markdown-content pre {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+}
+
+.markdown-content pre code {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: 0.9em;
+}
+
+.markdown-content blockquote {
+  border-left: 3px solid var(--umd-gold);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  font-style: italic;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  width: 100%;
+  font-size: 0.95em;
+}
+
+.markdown-content table th,
+.markdown-content table td {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+}
+
+.markdown-content table th {
+  background-color: rgba(0, 0, 0, 0.2);
 }
