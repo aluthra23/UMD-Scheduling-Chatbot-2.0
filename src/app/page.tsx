@@ -9,6 +9,7 @@ import rehypeRaw from 'rehype-raw';
 
 // Custom renderer for list items to fix the colon issue
 const renderers = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   li: ({ children, ...props }: any) => {
     return <li {...props} className="list-item">{children}</li>;
   }
