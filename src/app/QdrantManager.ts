@@ -135,7 +135,15 @@ export class QdrantManager {
       .join(' ');
 
     // Prepare input for LLM
-    const inputText = `Previous Conversation:\n${historyContext}\n\nContext: ${combinedText}\n\nUser: ${prompt}\n`;
+    const inputText = `
+    You are a chatbot that answers questions about University of Maryland courses and schedules.
+    Previous Conversation:
+    ${historyContext}
+    
+    Context:
+    ${combinedText}
+    
+    User: ${prompt}\n`;
     console.log(`Input text: ${inputText}`);
 
     // Generate response using Google's Generative AI
