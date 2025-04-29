@@ -117,7 +117,7 @@ export class QdrantManager {
     // Search for similar context in the database
     const results = await this.searchSimilar(collectionName, prompt);
 
-    console.log("Results:", results);
+    // console.log("Results:", results);
 
     if (!results || results.length === 0) {
       return "No relevant context found. How can I help you?";

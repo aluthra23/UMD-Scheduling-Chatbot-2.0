@@ -7,6 +7,13 @@ import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import rehypeRaw from 'rehype-raw';
 
+// Custom renderer for list items to fix the colon issue
+const renderers = {
+  li: ({ children, ...props }: any) => {
+    return <li {...props} className="list-item">{children}</li>;
+  }
+};
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -69,6 +76,11 @@ export default function Home() {
     }
   };
 
+  // Process markdown to fix formatting issues with colons in list items
+  const processMarkdown = (content: string) => {
+    return content.replace(/(\d+\.)\s+\*\*([^:]+):\*\*/g, '$1 **$2:**');
+  };
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-[#0e0e0e] to-black">
       {/* Header */}
@@ -106,8 +118,9 @@ export default function Home() {
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeSanitize, rehypeRaw]}
+                    components={renderers}
                   >
-                    {message.content}
+                    {processMarkdown(message.content)}
                   </ReactMarkdown>
                 </div>
               ) : (
