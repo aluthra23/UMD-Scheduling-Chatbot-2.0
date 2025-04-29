@@ -12,10 +12,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+
 export const metadata: Metadata = {
   title: "UMD Scheduling Chatbot",
   description: "Chat with UMD Scheduling Assistant",
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 };
+
 
 export default function RootLayout({
   children,
