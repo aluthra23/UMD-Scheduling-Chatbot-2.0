@@ -8,7 +8,17 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Components } from 'react-markdown';
-import Link from 'next/link';
+
+// Define more specific types for markdown components
+type MarkdownComponentProps = {
+  children?: React.ReactNode;
+  className?: string;
+};
+
+// Type for code component which has special props
+type CodeProps = MarkdownComponentProps & {
+  inline?: boolean;
+};
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([
@@ -89,22 +99,22 @@ export default function ChatPage() {
 
   // Custom markdown components
   const markdownComponents: Components = {
-    table: ({node, ...props}) => (
+    table: (props: MarkdownComponentProps) => (
       <div className="overflow-x-auto my-1">
         <table className="border-collapse border border-gray-700" {...props} />
       </div>
     ),
-    th: ({node, ...props}) => <th className="border border-gray-700 bg-gray-800 px-3 py-1 text-sm" {...props} />,
-    td: ({node, ...props}) => <td className="border border-gray-700 px-3 py-1 text-sm" {...props} />,
-    ol: ({node, ...props}) => <ol className="list-decimal pl-6 my-1" {...props} />,
-    ul: ({node, ...props}) => <ul className="list-disc pl-6 my-1" {...props} />,
-    li: ({node, ...props}) => <li className="my-0.5 display-list-item" {...props} />,
-    p: ({node, ...props}) => <p className="my-1" {...props} />,
-    h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-3 mb-1" {...props} />,
-    h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-3 mb-1" {...props} />,
-    h3: ({node, ...props}) => <h3 className="text-base font-bold mt-2 mb-1" {...props} />,
-    pre: ({node, ...props}) => <pre className="bg-gray-800 p-2 rounded my-2 overflow-x-auto" {...props} />,
-    code: ({node, className, children, ...props}: any) => {
+    th: (props: MarkdownComponentProps) => <th className="border border-gray-700 bg-gray-800 px-3 py-1 text-sm" {...props} />,
+    td: (props: MarkdownComponentProps) => <td className="border border-gray-700 px-3 py-1 text-sm" {...props} />,
+    ol: (props: MarkdownComponentProps) => <ol className="list-decimal pl-6 my-1" {...props} />,
+    ul: (props: MarkdownComponentProps) => <ul className="list-disc pl-6 my-1" {...props} />,
+    li: (props: MarkdownComponentProps) => <li className="my-0.5 display-list-item" {...props} />,
+    p: (props: MarkdownComponentProps) => <p className="my-1" {...props} />,
+    h1: (props: MarkdownComponentProps) => <h1 className="text-xl font-bold mt-3 mb-1" {...props} />,
+    h2: (props: MarkdownComponentProps) => <h2 className="text-lg font-bold mt-3 mb-1" {...props} />,
+    h3: (props: MarkdownComponentProps) => <h3 className="text-base font-bold mt-2 mb-1" {...props} />,
+    pre: (props: MarkdownComponentProps) => <pre className="bg-gray-800 p-2 rounded my-2 overflow-x-auto" {...props} />,
+    code: ({ className, children, ...props }: CodeProps) => {
       const match = /language-(\w+)/.exec(className || '');
       const isInline = !match && !className;
       return isInline ? (
@@ -118,10 +128,10 @@ export default function ChatPage() {
       );
     },
     // Handle strong and emphasis specifically for nested cases
-    strong: ({node, children, ...props}) => (
+    strong: ({ children, ...props }: MarkdownComponentProps) => (
       <strong className="font-bold" {...props}>{children}</strong>
     ),
-    em: ({node, children, ...props}) => (
+    em: ({ children, ...props }: MarkdownComponentProps) => (
       <em className="italic" {...props}>{children}</em>
     )
   };
