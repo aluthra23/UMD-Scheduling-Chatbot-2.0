@@ -39,6 +39,10 @@ body {
   min-height: 100vh;
 }
 
+html {
+  background-color: #000000;
+}
+
 /* Interactive feature card */
 .feature-card {
   transition: transform 0.3s ease, box-shadow 0.3s ease;

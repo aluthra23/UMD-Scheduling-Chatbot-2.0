@@ -62,6 +62,50 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Technologies Section */}
+      <div className="py-16 px-6 bg-gradient-to-br from-gray-950 to-black">
+        <h2 className="text-3xl font-bold text-center mb-12 text-white">Technologies Used</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          <div className="feature-card bg-gradient-to-br from-gray-900 to-black p-6 rounded-xl shadow-lg border border-gray-800 hover:border-[var(--umd-gold)]">
+            <div className="feature-icon bg-[var(--umd-red)] w-12 h-12 rounded-full flex items-center justify-center mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m5 13 4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Next.js</h3>
+            <p className="text-gray-400">Built with React and Next.js for a smooth, responsive user experience.</p>
+          </div>
+          <div className="feature-card bg-gradient-to-br from-gray-900 to-black p-6 rounded-xl shadow-lg border border-gray-800 hover:border-[var(--umd-gold)]">
+            <div className="feature-icon bg-[var(--umd-red)] w-12 h-12 rounded-full flex items-center justify-center mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.3-4.3"></path>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Qdrant</h3>
+            <p className="text-gray-400">Vector database for semantic search and efficient information retrieval.</p>
+          </div>
+          <div className="feature-card bg-gradient-to-br from-gray-900 to-black p-6 rounded-xl shadow-lg border border-gray-800 hover:border-[var(--umd-gold)]">
+            <div className="feature-icon bg-[var(--umd-red)] w-12 h-12 rounded-full flex items-center justify-center mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v8.4a7.48 7.48 0 0 1-3 6V22h6v-5.6a7.48 7.48 0 0 1-3-6V2"></path>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Gemini</h3>
+            <p className="text-gray-400">Powered by Google&apos;s Gemini AI models to generate accurate, helpful responses.</p>
+          </div>
+          <div className="feature-card bg-gradient-to-br from-gray-900 to-black p-6 rounded-xl shadow-lg border border-gray-800 hover:border-[var(--umd-gold)]">
+            <div className="feature-icon bg-[var(--umd-red)] w-12 h-12 rounded-full flex items-center justify-center mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-white">Web Scraping</h3>
+            <p className="text-gray-400">Advanced data collection techniques to gather up-to-date UMD course information.</p>
+          </div>
+        </div>
+      </div>
+
       {/* CTA */}
       <div className="py-16 px-6 text-center">
         <div className="max-w-3xl mx-auto">
@@ -87,7 +131,7 @@ export default function Home() {
           </p>
           <a 
             href="https://aravluthra.vercel.app/contact" 
-            target="_blank" 
+            target="_blank"
             rel="noopener noreferrer"
             className="umd-button bg-gradient-to-r from-[var(--umd-darkest-red)] to-[var(--umd-dark-red)] hover:from-[var(--umd-dark-red)] hover:to-[var(--umd-darkest-red)] text-white py-2 px-6 rounded-full font-medium transition-all duration-300 inline-flex items-center"
           >
