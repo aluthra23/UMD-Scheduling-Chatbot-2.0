@@ -12,7 +12,7 @@
     "@google/generative-ai": "^0.24.0",
     "@qdrant/qdrant-js": "^1.14.0",
     "@tailwindcss/typography": "^0.5.16",
-    "next": "^15.3.1",
+    "next": "^15.3.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",

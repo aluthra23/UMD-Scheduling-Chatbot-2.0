@@ -2,20 +2,27 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1a1a1a;
+  --secondary: #f8f9fa;
+  --muted: #6b7280;
+  --border: #e5e7eb;
   --umd-red: #e21833;
-  --umd-dark-red: #a51323;
-  --umd-darker-red: #8c0f1d;
-  --umd-darkest-red: #630a14;
-  --umd-gold: #ffd200;
-  --umd-black: #0e0e0e;
-  --chat-bot-bg: #1c1c1c;
-  --chat-user-bg: linear-gradient(135deg, #9a1120, #6b0c17);
-  --chat-bot-text: #ffffff;
+  --umd-red-light: #f87171;
+  --umd-red-dark: #991b1b;
+  --umd-gold: #fbbf24;
+  --umd-gold-light: #fde68a;
+  --card-bg: #ffffff;
+  --card-border: #f3f4f6;
+  --hover-bg: #f9fafb;
+  --chat-bot-bg: #f8fafc;
+  --chat-user-bg: #e21833;
+  --chat-bot-text: #374151;
   --chat-user-text: #ffffff;
-  --header-bg: linear-gradient(90deg, #630a14, #a51323);
-  --input-bg: #111111;
-  --footer-bg: #0a0a0a;
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
 @theme inline {
@@ -25,60 +32,81 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: linear-gradient(to bottom, #0e0e0e, #000000);
+  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
   min-height: 100vh;
+  line-height: 1.6;
 }
 
 html {
-  background-color: #000000;
+  background-color: var(--background);
 }
 
-/* Interactive feature card */
+/* Feature card styling */
 .feature-card {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid var(--card-border);
 }
 
 .feature-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
   border-color: var(--umd-red);
 }
 
 .feature-card:hover .feature-icon {
-  background-color: var(--umd-gold);
-  color: var(--umd-black);
-  transform: scale(1.1);
+  background-color: var(--umd-red);
+  color: white;
+  transform: scale(1.05);
 }
 
 .feature-icon {
-  transition: background-color 0.3s ease, transform 0.3s ease, color 0.3s ease;
+  transition: all 0.2s ease-in-out;
+  background-color: var(--umd-gold);
+  color: var(--foreground);
 }
 
 /* Button styling */
 .umd-button {
   position: relative;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease-in-out;
   cursor: pointer;
+  border: none;
+  outline: none;
 }
 
 .umd-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .umd-button:active {
-  transform: translateY(1px);
+  transform: translateY(0);
+}
+
+.umd-button:focus-visible {
+  outline: 2px solid var(--umd-red);
+  outline-offset: 2px;
+}
+
+/* Primary button variant */
+.umd-button-primary {
+  background: var(--umd-red);
+  color: white;
+}
+
+.umd-button-primary:hover {
+  background: var(--umd-red-dark);
+}
+
+/* Secondary button variant */
+.umd-button-secondary {
+  background: var(--secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
 }
 
 .umd-button::after {
