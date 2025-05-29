@@ -189,7 +189,7 @@ export default function ChatPage() {
 
       {/* Input Form */}
       <div className="border-t border-gray-200 bg-white px-6 py-4">
-        <div className="flex space-x-4">
+        <form onSubmit={handleSubmit} className="flex space-x-4">
           <textarea
             ref={textareaRef}
             value={input}
@@ -207,14 +207,14 @@ export default function ChatPage() {
           <button
             type="submit"
             disabled={isLoading || input.trim() === ''}
-            className="umd-button-primary px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm h-12 flex items-center justify-center min-w-[48px]"
+            className="umd-button-primary px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm h-12 flex items-center justify-center min-w-[48px] cursor-pointer"
             aria-label="Send message"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
               <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
             </svg>
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );
