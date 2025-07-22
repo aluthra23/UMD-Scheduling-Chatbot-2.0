@@ -147,7 +147,7 @@ export class QdrantManager {
 
     // Generate response using Google's Generative AI
     const genAI = new GoogleGenerativeAI(googleApiKeyList[Math.floor(Math.random() * googleApiKeyList.length)]);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-04-17' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContent(inputText);
     const response = await result.response;
     
