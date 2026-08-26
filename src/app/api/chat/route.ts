@@ -61,7 +61,16 @@ export async function POST(request: NextRequest) {
         controller.close();
       } catch (error) {
         console.error(`Error streaming chat from collection '${collectionName}':`, error);
-        controller.error(error);
+        const status = typeof error === 'object' && error !== null && 'status' in error
+          ? (error as { status?: number }).status
+          : undefined;
+        const message = status === 429
+          ? 'The assistant has reached its Gemini request limit. Please try again in a few minutes.'
+          : 'Sorry, the assistant is temporarily unavailable. Please try again.';
+        if (!request.signal.aborted) {
+          controller.enqueue(encoder.encode(message));
+        }
+        controller.close();
       }
     },
   });

@@ -281,6 +281,12 @@ export default function ChatClient() {
 
       {/* Input Form */}
       <div className="border-t border-gray-200 bg-white px-6 py-4">
+        <div className="mb-3 flex items-center gap-2 text-sm text-gray-600">
+          <span className="font-medium text-gray-800">
+            {selectedCollection ? `Showing ${formatTerm(selectedCollection)}.` : 'Loading current course term…'}
+          </span>
+          <span>Use the course-term dropdown to switch semesters.</span>
+        </div>
         <form onSubmit={handleSubmit} className="flex space-x-4">
           <label className="sr-only" htmlFor="term-selector">Course term</label>
           <select
