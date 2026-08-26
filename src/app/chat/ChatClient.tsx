@@ -26,6 +26,18 @@ const formatTerm = (termId: string) => {
   return `${termId.slice(4) === '01' ? 'Spring' : 'Fall'} ${year}`;
 };
 
+const formatLastUpdate = (timestamp: number) => {
+  const lastHourlyUpdate = new Date(timestamp);
+  lastHourlyUpdate.setUTCMinutes(0, 0, 0);
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).format(lastHourlyUpdate);
+};
+
 export default function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -41,6 +53,7 @@ export default function ChatClient() {
   const [collections, setCollections] = useState<string[]>([]);
   const [selectedCollection, setSelectedCollection] = useState('');
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
+  const [clock, setClock] = useState(() => Date.now());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,6 +86,11 @@ export default function ChatClient() {
     };
 
     void loadCollections();
+  }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setClock(Date.now()), 60_000);
+    return () => window.clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -281,11 +299,13 @@ export default function ChatClient() {
 
       {/* Input Form */}
       <div className="border-t border-gray-200 bg-white px-6 py-4">
-        <div className="mb-3 flex items-center gap-2 text-sm text-gray-600">
+        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600">
           <span className="font-medium text-gray-800">
             {selectedCollection ? `Showing ${formatTerm(selectedCollection)}.` : 'Loading current course term…'}
           </span>
           <span>Use the course-term dropdown to switch semesters.</span>
+          <span aria-hidden="true">•</span>
+          <span>Data last updated: {formatLastUpdate(clock)}</span>
         </div>
         <form onSubmit={handleSubmit} className="flex space-x-4">
           <label className="sr-only" htmlFor="term-selector">Course term</label>
