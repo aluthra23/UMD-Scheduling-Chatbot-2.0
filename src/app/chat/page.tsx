@@ -8,6 +8,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import { Components } from 'react-markdown';
+import { embedText } from '../embeddings';
 
 // Define more specific types for markdown components
 type MarkdownComponentProps = {
@@ -63,7 +64,8 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await chat([...messages, userMessage]);
+      const embedding = await embedText(userMessage.content);
+      const response = await chat([...messages, userMessage], embedding);
       setMessages(prev => [...prev, response]);
     } catch (error) {
       console.error('Error sending message:', error);

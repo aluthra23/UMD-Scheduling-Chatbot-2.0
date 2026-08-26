@@ -6,7 +6,7 @@ const qdrantApiKey = process.env.QDRANT_API_KEY || '';
 
 const host = process.env.QDRANT_LINK || 'http://localhost';
 const manager = new QdrantManager(qdrantApiKey, host);
-const collectionName="Fall-2025-Courses"
+const collectionName = process.env.QDRANT_COLLECTION || "Fall-2026-Courses";
 
 export interface Message {
   id: string;
@@ -15,10 +15,10 @@ export interface Message {
   timestamp: number;
 }
 
-export async function chat(messages: Message[]): Promise<Message> {
+export async function chat(messages: Message[], embedding: number[]): Promise<Message> {
   let response = "";
   try {
-    response = await manager.chat(collectionName, messages[messages.length - 1].content, messages.slice(1, -1).map(m => m.content));
+    response = await manager.chat(collectionName, messages[messages.length - 1].content, embedding, messages.slice(1, -1).map(m => m.content));
     console.log('Chat response:', response);
   } catch (error) {
     response = "The lecture is not available at this time. Please try again later.";
@@ -32,4 +32,4 @@ export async function chat(messages: Message[]): Promise<Message> {
     role: 'assistant',
     timestamp: Date.now()
   };
-} 
+}

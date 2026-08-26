@@ -1,5 +1,5 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 interface SearchResult {
   payload: {
@@ -44,7 +44,7 @@ export class QdrantManager {
 
   async createCollection(
     collectionName: string,
-    vectorSize: number = 768
+    vectorSize: number = 384
   ): Promise<void> {
     try {
       const { exists } = await this.client.collectionExists(collectionName);
@@ -80,19 +80,26 @@ export class QdrantManager {
   async searchSimilar(
     collectionName: string,
     prompt: string,
+    embedding: number[],
     limit: number = 30,
     similarityThreshold: number = 0.2
   ): Promise<SearchResult[]> {
-    const genAI = new GoogleGenerativeAI(googleApiKeyList[Math.floor(Math.random() * googleApiKeyList.length)]);
-    const model = genAI.getGenerativeModel({ model: 'text-embedding-004' });
-    const result = await model.embedContent(prompt);
-    const embedding = result.embedding.values;
+    if (embedding.length !== 384) {
+      throw new Error(`Expected a 384-dimensional MiniLM vector, received ${embedding.length}`);
+    }
 
+    const courseCodes = prompt.toUpperCase().match(/\b[A-Z]{4}\d{3}[A-Z]?\b/g);
     const searchResults = await this.client.query(collectionName, {
       query: embedding,
       limit,
       with_payload: true,
       score_threshold: similarityThreshold,
+      filter: courseCodes?.length ? {
+        must: courseCodes.map((courseCode) => ({
+          key: 'course_number',
+          match: { value: courseCode },
+        })),
+      } : undefined,
     });
 
     return searchResults.points
@@ -106,6 +113,7 @@ export class QdrantManager {
   async chat(
     collectionName: string,
     prompt: string,
+    embedding: number[],
     conversationHistory: string[] = []
   ): Promise<string> {
     // Check if collection exists
@@ -115,7 +123,7 @@ export class QdrantManager {
     }
 
     // Search for similar context in the database
-    const results = await this.searchSimilar(collectionName, prompt);
+    const results = await this.searchSimilar(collectionName, prompt, embedding);
 
     // console.log("Results:", results);
 
@@ -146,12 +154,13 @@ export class QdrantManager {
     // console.log(`Input text: ${inputText}`);
 
     // Generate response using Google's Generative AI
-    const genAI = new GoogleGenerativeAI(googleApiKeyList[Math.floor(Math.random() * googleApiKeyList.length)]);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-    const result = await model.generateContent(inputText);
-    const response = await result.response;
-    
-    return response.text();
+    const genAI = new GoogleGenAI({ apiKey: googleApiKeyList[Math.floor(Math.random() * googleApiKeyList.length)] });
+    const response = await genAI.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: inputText,
+    });
+
+    return response.text || 'No response generated.';
   }
 
-} 
+}
