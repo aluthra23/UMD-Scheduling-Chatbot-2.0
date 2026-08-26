@@ -22,9 +22,27 @@ const response = await fetch('http://localhost:3000/api/chat', {
       timestamp: 0,
     }],
     embedding,
+    collection: process.env.QDRANT_COLLECTION || '202608',
   }),
 });
 
 console.log('embedding dimensions:', embedding.length);
 console.log('status:', response.status);
-console.log('response:', await response.text());
+
+if (!response.body) throw new Error('Response body was not streamed.');
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+let text = '';
+let chunks = 0;
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  chunks += 1;
+  text += decoder.decode(value, { stream: true });
+}
+text += decoder.decode();
+
+console.log('stream chunks:', chunks);
+console.log('response:', text);

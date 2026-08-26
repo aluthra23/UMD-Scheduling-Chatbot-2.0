@@ -42,6 +42,14 @@ export class QdrantManager {
     }
   }
 
+  async listTermCollections(): Promise<string[]> {
+    const collections = await this.client.getCollections();
+    return collections.collections
+      .map((collection) => collection.name)
+      .filter((name) => /^20\d{2}(01|08)$/.test(name))
+      .sort((a, b) => b.localeCompare(a));
+  }
+
   async createCollection(
     collectionName: string,
     vectorSize: number = 384
@@ -91,7 +99,7 @@ export class QdrantManager {
     const courseCodes = prompt.toUpperCase().match(/\b[A-Z]{4}\d{3}[A-Z]?\b/g);
     const searchResults = await this.client.query(collectionName, {
       query: embedding,
-      limit,
+      limit: courseCodes?.length ? Math.max(limit, 250) : limit,
       with_payload: true,
       score_threshold: similarityThreshold,
       filter: courseCodes?.length ? {
@@ -116,6 +124,26 @@ export class QdrantManager {
     embedding: number[],
     conversationHistory: string[] = []
   ): Promise<string> {
+    let response = '';
+
+    for await (const chunk of this.chatStream(
+      collectionName,
+      prompt,
+      embedding,
+      conversationHistory,
+    )) {
+      response += chunk;
+    }
+
+    return response || 'No response generated.';
+  }
+
+  async *chatStream(
+    collectionName: string,
+    prompt: string,
+    embedding: number[],
+    conversationHistory: string[] = []
+  ): AsyncGenerator<string> {
     // Check if collection exists
     const { exists } = await this.client.collectionExists(collectionName);
     if (!exists) {
@@ -128,7 +156,8 @@ export class QdrantManager {
     // console.log("Results:", results);
 
     if (!results || results.length === 0) {
-      return "No relevant context found. How can I help you?";
+      yield "No relevant context found. How can I help you?";
+      return;
     }
 
     // Construct context with previous conversation history
@@ -155,12 +184,16 @@ export class QdrantManager {
 
     // Generate response using Google's Generative AI
     const genAI = new GoogleGenAI({ apiKey: googleApiKeyList[Math.floor(Math.random() * googleApiKeyList.length)] });
-    const response = await genAI.models.generateContent({
+    const response = await genAI.models.generateContentStream({
       model: 'gemini-2.5-flash',
       contents: inputText,
     });
 
-    return response.text || 'No response generated.';
+    for await (const chunk of response) {
+      if (chunk.text) {
+        yield chunk.text;
+      }
+    }
   }
 
 }

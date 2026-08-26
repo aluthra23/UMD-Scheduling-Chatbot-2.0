@@ -6,7 +6,7 @@ const qdrantApiKey = process.env.QDRANT_API_KEY || '';
 
 const host = process.env.QDRANT_LINK || 'http://localhost';
 const manager = new QdrantManager(qdrantApiKey, host);
-const collectionName = process.env.QDRANT_COLLECTION || "Fall-2026-Courses";
+const collectionName = process.env.QDRANT_COLLECTION || "202608";
 
 export interface Message {
   id: string;

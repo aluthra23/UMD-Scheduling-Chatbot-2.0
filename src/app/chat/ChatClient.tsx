@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { chat, Message } from '../actions';
+import type { Message } from '../actions';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -21,6 +21,11 @@ type CodeProps = MarkdownComponentProps & {
   inline?: boolean;
 };
 
+const formatTerm = (termId: string) => {
+  const year = termId.slice(0, 4);
+  return `${termId.slice(4) === '01' ? 'Spring' : 'Fall'} ${year}`;
+};
+
 export default function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -32,6 +37,10 @@ export default function ChatClient() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [hasStartedResponse, setHasStartedResponse] = useState(false);
+  const [collections, setCollections] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState('');
+  const [isLoadingTerms, setIsLoadingTerms] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -48,9 +57,27 @@ export default function ChatClient() {
     }
   }, [input]);
 
+  useEffect(() => {
+    const loadCollections = async () => {
+      try {
+        const response = await fetch('/api/collections');
+        if (!response.ok) throw new Error(`Term request failed with status ${response.status}`);
+        const data = await response.json() as { collections: string[] };
+        setCollections(data.collections);
+        setSelectedCollection(current => current || data.collections[0] || '');
+      } catch (error) {
+        console.error('Error loading available terms:', error);
+      } finally {
+        setIsLoadingTerms(false);
+      }
+    };
+
+    void loadCollections();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() === '' || isLoading) return;
+    if (input.trim() === '' || isLoading || !selectedCollection) return;
 
     const userMessage: Message = {
       id: Math.random().toString(36).substring(2, 11),
@@ -62,25 +89,88 @@ export default function ChatClient() {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setHasStartedResponse(false);
 
+    const assistantId = Math.random().toString(36).substring(2, 11);
+    let assistantAdded = false;
     try {
       const embedding = await embedText(userMessage.content);
-      const response = await chat([...messages, userMessage], embedding);
-      setMessages(prev => [...prev, response]);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Add error message
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+          embedding,
+          collection: selectedCollection,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Chat request failed with status ${response.status}`);
+      }
+      if (!response.body) {
+        throw new Error('The chat response did not include a readable stream.');
+      }
+
       setMessages(prev => [
         ...prev,
         {
-          id: Math.random().toString(36).substring(2, 11),
-          content: 'Sorry, I encountered an error. Please try again.',
+          id: assistantId,
+          content: '',
           role: 'assistant',
-          timestamp: Date.now()
-        }
+          timestamp: Date.now(),
+        },
       ]);
+      assistantAdded = true;
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        if (!chunk) continue;
+        setHasStartedResponse(true);
+        setMessages(prev => prev.map(message =>
+          message.id === assistantId
+            ? { ...message, content: message.content + chunk }
+            : message
+        ));
+      }
+
+      const finalChunk = decoder.decode();
+      if (finalChunk) {
+        setHasStartedResponse(true);
+        setMessages(prev => prev.map(message =>
+          message.id === assistantId
+            ? { ...message, content: message.content + finalChunk }
+            : message
+        ));
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setMessages(prev => assistantAdded
+        ? prev.map(message => message.id === assistantId
+          ? {
+              ...message,
+              content: message.content || 'Sorry, I encountered an error. Please try again.',
+            }
+          : message)
+        : [
+            ...prev,
+            {
+              id: assistantId,
+              content: 'Sorry, I encountered an error. Please try again.',
+              role: 'assistant',
+              timestamp: Date.now()
+            }
+          ]
+      );
     } finally {
       setIsLoading(false);
+      setHasStartedResponse(false);
     }
   };
 
@@ -174,7 +264,7 @@ export default function ChatClient() {
               </div>
             </div>
           ))}
-          {isLoading && (
+          {isLoading && !hasStartedResponse && (
             <div className="flex justify-start">
               <div className="rounded-2xl bg-white border border-gray-200 px-6 py-4 rounded-bl-sm shadow-sm">
                 <div className="flex space-x-2">
@@ -192,6 +282,21 @@ export default function ChatClient() {
       {/* Input Form */}
       <div className="border-t border-gray-200 bg-white px-6 py-4">
         <form onSubmit={handleSubmit} className="flex space-x-4">
+          <label className="sr-only" htmlFor="term-selector">Course term</label>
+          <select
+            id="term-selector"
+            value={selectedCollection}
+            onChange={(event) => setSelectedCollection(event.target.value)}
+            disabled={isLoading || isLoadingTerms || collections.length === 0}
+            className="h-12 shrink-0 rounded-xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-[var(--umd-red)] disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Course term"
+          >
+            {isLoadingTerms && <option>Loading terms…</option>}
+            {!isLoadingTerms && collections.length === 0 && <option>No terms available</option>}
+            {collections.map((collection) => (
+              <option key={collection} value={collection}>{formatTerm(collection)}</option>
+            ))}
+          </select>
           <textarea
             ref={textareaRef}
             value={input}
@@ -208,7 +313,7 @@ export default function ChatClient() {
           />
           <button
             type="submit"
-            disabled={isLoading || input.trim() === ''}
+            disabled={isLoading || input.trim() === '' || !selectedCollection}
             className="umd-button-primary px-6 py-3 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm h-12 flex items-center justify-center min-w-[48px] cursor-pointer"
             aria-label="Send message"
           >

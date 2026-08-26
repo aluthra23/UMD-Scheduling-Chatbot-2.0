@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { chat, Message } from '../../actions';
+import type { Message } from '../../actions';
+import { QdrantManager } from '../../QdrantManager';
+
+const manager = new QdrantManager(
+  process.env.QDRANT_API_KEY || '',
+  process.env.QDRANT_LINK || 'http://localhost',
+);
+const TERM_COLLECTION_PATTERN = /^20\d{2}(01|08)$/;
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -21,5 +28,49 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return NextResponse.json(await chat(messages, embedding));
+  const collectionName = body.collection as string | undefined;
+  if (!collectionName || !TERM_COLLECTION_PATTERN.test(collectionName)) {
+    return NextResponse.json(
+      { error: 'A valid term collection is required.' },
+      { status: 400 },
+    );
+  }
+  if (!await manager.collectionExists(collectionName)) {
+    return NextResponse.json(
+      { error: 'The selected term is not available.' },
+      { status: 404 },
+    );
+  }
+
+  const lastMessage = messages[messages.length - 1];
+  const conversationHistory = messages.slice(1, -1).map((message) => message.content);
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const chunk of manager.chatStream(
+          collectionName,
+          lastMessage.content,
+          embedding,
+          conversationHistory,
+        )) {
+          if (request.signal.aborted) break;
+          controller.enqueue(encoder.encode(chunk));
+        }
+        controller.close();
+      } catch (error) {
+        console.error(`Error streaming chat from collection '${collectionName}':`, error);
+        controller.error(error);
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
 }
