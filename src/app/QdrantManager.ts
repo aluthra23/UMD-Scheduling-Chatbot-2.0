@@ -1,199 +1,125 @@
 import { QdrantClient } from '@qdrant/js-client-rest';
 import { GoogleGenAI } from '@google/genai';
 
-interface SearchResult {
-  payload: {
-    text: string;
-  };
-  score: number;
-}
+import type { Message } from './types';
+import {
+  buildHistory,
+  buildPrompt,
+  carriedCourseCodes,
+  extractCourseCodes,
+  mergeDocuments,
+  systemInstruction,
+  TERM_COLLECTION_PATTERN,
+  type RetrievedDocument,
+} from './retrieval';
 
-const googleApiKeyList = [process.env.GOOGLE_API_KEY || '']
-
-export interface Point {
-  id: string | number; // ID can be a string or a number
-  payload?: {
-    text: string;
-  };
-  vector?: number[];   // Optional, if you are working with vectors
-}
+const SYNC_STATUS_COLLECTION = 'sync_status';
+const SEMANTIC_LIMIT = 30;
+const SEMANTIC_SCORE_THRESHOLD = 0.2;
+const DOCUMENTS_PER_COURSE = 120;
+const CARRIED_DOCUMENTS_PER_COURSE = 40;
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 export class QdrantManager {
   private client: QdrantClient;
+  private genAI?: GoogleGenAI;
 
-  constructor(
-    qdrantApiKey: string,
-    host: string = 'localhost',
-    port: number = 6333
-  ) {
-    this.client = new QdrantClient({
-      url: host,
-      port,
-      apiKey: qdrantApiKey,
-    });
+  constructor(qdrantApiKey: string, host: string = 'localhost', port: number = 6333) {
+    this.client = new QdrantClient({ url: host, port, apiKey: qdrantApiKey });
   }
 
   async collectionExists(collectionName: string): Promise<boolean> {
     const { exists } = await this.client.collectionExists(collectionName);
-    if (exists) {
-      return true;
-    } else {
-      return false;
-    }
+    return exists;
   }
 
   async listTermCollections(): Promise<string[]> {
     const collections = await this.client.getCollections();
     return collections.collections
       .map((collection) => collection.name)
-      .filter((name) => /^20\d{2}(01|08)$/.test(name))
+      .filter((name) => TERM_COLLECTION_PATTERN.test(name))
       .sort((a, b) => b.localeCompare(a));
   }
 
-  async createCollection(
-    collectionName: string,
-    vectorSize: number = 384
-  ): Promise<void> {
+  /** When the scraping pipeline last synced each term, as ISO timestamps. Terms it never synced are absent. */
+  async lastSyncedByTerm(): Promise<Record<string, string>> {
     try {
-      const { exists } = await this.client.collectionExists(collectionName);
-      if (exists) {
-        console.log(`Collection '${collectionName}' already exists`);
-        return;
+      const { points } = await this.client.scroll(SYNC_STATUS_COLLECTION, { limit: 100, with_payload: true, with_vector: false });
+      const result: Record<string, string> = {};
+      for (const point of points) {
+        const { collection, synced_at: syncedAt } = (point.payload ?? {}) as { collection?: unknown; synced_at?: unknown };
+        if (typeof collection === 'string' && typeof syncedAt === 'string') result[collection] = syncedAt;
       }
-    } catch (e) {
-      // Ignore deletion errors
-      console.log(e);
+      return result;
+    } catch (error) {
+      // 404 just means the pipeline hasn't recorded any sync yet.
+      if ((error as { status?: number }).status !== 404) console.error('Unable to read sync status:', error);
+      return {};
     }
-
-    await this.client.createCollection(collectionName, 
-      {
-      vectors: {
-        size: vectorSize,
-        distance: "Cosine"
-      },
-    });
-
-    console.log(`Collection '${collectionName}' created successfully`);
   }
 
-  async deleteCollection(collectionName: string): Promise<void> {
-    const { exists } = await this.client.collectionExists(collectionName);
-    if (!exists) {
-      throw new Error(`Collection '${collectionName}' does not exist`);
-    }
-
-    await this.client.deleteCollection(collectionName);
-  }
-
-  async searchSimilar(
-    collectionName: string,
-    prompt: string,
-    embedding: number[],
-    limit: number = 30,
-    similarityThreshold: number = 0.2
-  ): Promise<SearchResult[]> {
-    if (embedding.length !== 384) {
-      throw new Error(`Expected a 384-dimensional MiniLM vector, received ${embedding.length}`);
-    }
-
-    const courseCodes = prompt.toUpperCase().match(/\b[A-Z]{4}\d{3}[A-Z]?\b/g);
-    const searchResults = await this.client.query(collectionName, {
+  private async semanticSearch(collectionName: string, embedding: number[]): Promise<RetrievedDocument[]> {
+    const { points } = await this.client.query(collectionName, {
       query: embedding,
-      limit: courseCodes?.length ? Math.max(limit, 250) : limit,
+      limit: SEMANTIC_LIMIT,
       with_payload: true,
-      score_threshold: similarityThreshold,
-      filter: courseCodes?.length ? {
-        must: courseCodes.map((courseCode) => ({
-          key: 'course_number',
-          match: { value: courseCode },
-        })),
-      } : undefined,
+      score_threshold: SEMANTIC_SCORE_THRESHOLD,
     });
-
-    return searchResults.points
-      .filter((result) => result.score >= similarityThreshold)
-      .map((result) => ({
-        payload: result.payload as SearchResult['payload'],
-        score: result.score,
-      }));
+    return points.map((point) => ({ id: point.id, text: String(point.payload?.text ?? '') }));
   }
 
-  async chat(
-    collectionName: string,
-    prompt: string,
-    embedding: number[],
-    conversationHistory: string[] = []
-  ): Promise<string> {
-    let response = '';
-
-    for await (const chunk of this.chatStream(
-      collectionName,
-      prompt,
-      embedding,
-      conversationHistory,
-    )) {
-      response += chunk;
-    }
-
-    return response || 'No response generated.';
+  /** Every document for each course, one query per code so a large course can't crowd out the others. */
+  private async courseSearch(collectionName: string, embedding: number[], codes: string[], perCourse: number): Promise<RetrievedDocument[]> {
+    const lists = await Promise.all(codes.map(async (code) => {
+      const { points } = await this.client.query(collectionName, {
+        query: embedding,
+        limit: perCourse,
+        with_payload: true,
+        filter: { must: [{ key: 'course_number', match: { value: code } }] },
+      });
+      return points.map((point) => ({ id: point.id, text: String(point.payload?.text ?? '') }));
+    }));
+    return mergeDocuments(...lists);
   }
 
-  async *chatStream(
-    collectionName: string,
-    prompt: string,
-    embedding: number[],
-    conversationHistory: string[] = []
-  ): AsyncGenerator<string> {
-    // Check if collection exists
-    const { exists } = await this.client.collectionExists(collectionName);
-    if (!exists) {
-      throw new Error(`Collection '${collectionName}' does not exist`);
+  async retrieve(collectionName: string, prompt: string, embedding: number[], previous: Message[]): Promise<RetrievedDocument[]> {
+    const codes = extractCourseCodes(prompt);
+    if (codes.length) {
+      const byCourse = await this.courseSearch(collectionName, embedding, codes, DOCUMENTS_PER_COURSE);
+      // Words like "with 300" look like course codes; fall back to meaning-based search when nothing matches.
+      return byCourse.length ? byCourse : this.semanticSearch(collectionName, embedding);
     }
 
-    // Search for similar context in the database
-    const results = await this.searchSimilar(collectionName, prompt, embedding);
+    const carried = carriedCourseCodes(previous, prompt);
+    const [semantic, byCourse] = await Promise.all([
+      this.semanticSearch(collectionName, embedding),
+      carried.length ? this.courseSearch(collectionName, embedding, carried, CARRIED_DOCUMENTS_PER_COURSE) : Promise.resolve([]),
+    ]);
+    return mergeDocuments(byCourse, semantic);
+  }
 
-    // console.log("Results:", results);
+  async *chatStream(collectionName: string, messages: Message[], embedding: number[]): AsyncGenerator<string> {
+    const previous = messages.slice(0, -1);
+    const question = messages[messages.length - 1].content;
 
-    if (!results || results.length === 0) {
-      yield "No relevant context found. How can I help you?";
+    const documents = await this.retrieve(collectionName, question, embedding, previous);
+    if (!documents.length) {
+      yield "I couldn't find course information matching that question. Try including a course code like CMSC131, or rephrase it.";
       return;
     }
 
-    // Construct context with previous conversation history
-    const historyContext = conversationHistory.slice(-6).join('\n');
-
-    // Format the context from search results
-    const combinedText = results
-      .map((result) => {
-        const payload = result.payload;        
-        return `${payload.text}`;
-      })
-      .join(' ');
-
-    // Prepare input for LLM
-    const inputText = `
-    Previous Conversation:
-    ${historyContext}
-    
-    Context:
-    ${combinedText}
-    
-    User: ${prompt}\n`;
-    // console.log(`Input text: ${inputText}`);
-
-    // Generate response using Google's Generative AI
-    const genAI = new GoogleGenAI({ apiKey: googleApiKeyList[Math.floor(Math.random() * googleApiKeyList.length)] });
-    const response = await genAI.models.generateContentStream({
-      model: 'gemini-2.5-flash',
-      contents: inputText,
+    this.genAI ??= new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || '' });
+    const response = await this.genAI.models.generateContentStream({
+      model: GEMINI_MODEL,
+      contents: [
+        ...buildHistory(previous),
+        { role: 'user', parts: [{ text: buildPrompt(collectionName, question, documents) }] },
+      ],
+      config: { systemInstruction: systemInstruction(collectionName) },
     });
 
     for await (const chunk of response) {
-      if (chunk.text) {
-        yield chunk.text;
-      }
+      if (chunk.text) yield chunk.text;
     }
   }
-
 }

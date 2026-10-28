@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import type { Message } from '../actions';
+import type { Message, TermsResponse } from '../types';
+import { formatTerm } from '../retrieval';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -21,22 +22,18 @@ type CodeProps = MarkdownComponentProps & {
   inline?: boolean;
 };
 
-const formatTerm = (termId: string) => {
-  const year = termId.slice(0, 4);
-  return `${termId.slice(4) === '01' ? 'Spring' : 'Fall'} ${year}`;
-};
+// Enough recent turns for follow-up questions without sending the whole conversation.
+const MESSAGES_SENT_PER_REQUEST = 20;
+const ERROR_REPLY = 'Sorry, I encountered an error. Please try again.';
 
-const formatLastUpdate = (timestamp: number) => {
-  const lastHourlyUpdate = new Date(timestamp);
-  lastHourlyUpdate.setUTCMinutes(0, 0, 0);
-  return new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-    timeZoneName: 'short',
-  }).format(lastHourlyUpdate);
-};
+const formatSyncTime = (isoTimestamp: string) => new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZoneName: 'short',
+}).format(new Date(isoTimestamp));
 
 export default function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([
@@ -53,7 +50,7 @@ export default function ChatClient() {
   const [collections, setCollections] = useState<string[]>([]);
   const [selectedCollection, setSelectedCollection] = useState('');
   const [isLoadingTerms, setIsLoadingTerms] = useState(true);
-  const [clock, setClock] = useState(() => Date.now());
+  const [lastSynced, setLastSynced] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -75,8 +72,9 @@ export default function ChatClient() {
       try {
         const response = await fetch('/api/collections');
         if (!response.ok) throw new Error(`Term request failed with status ${response.status}`);
-        const data = await response.json() as { collections: string[] };
+        const data = await response.json() as TermsResponse;
         setCollections(data.collections);
+        setLastSynced(data.lastSynced ?? {});
         setSelectedCollection(current => current || data.collections[0] || '');
       } catch (error) {
         console.error('Error loading available terms:', error);
@@ -86,11 +84,6 @@ export default function ChatClient() {
     };
 
     void loadCollections();
-  }, []);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setClock(Date.now()), 60_000);
-    return () => window.clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,14 +110,15 @@ export default function ChatClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, userMessage],
+          messages: [...messages, userMessage].slice(-MESSAGES_SENT_PER_REQUEST),
           embedding,
           collection: selectedCollection,
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Chat request failed with status ${response.status}`);
+        const { error } = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(error || `Chat request failed with status ${response.status}`, { cause: response.status });
       }
       if (!response.body) {
         throw new Error('The chat response did not include a readable stream.');
@@ -169,20 +163,21 @@ export default function ChatClient() {
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      const reply = error instanceof Error && typeof error.cause === 'number' && error.cause < 500
+        ? error.message
+        : ERROR_REPLY;
       setMessages(prev => assistantAdded
         ? prev.map(message => message.id === assistantId
-          ? {
-              ...message,
-              content: message.content || 'Sorry, I encountered an error. Please try again.',
-            }
+          ? { ...message, content: message.content || reply, isError: true }
           : message)
         : [
             ...prev,
             {
               id: assistantId,
-              content: 'Sorry, I encountered an error. Please try again.',
+              content: reply,
               role: 'assistant',
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              isError: true,
             }
           ]
       );
@@ -304,8 +299,16 @@ export default function ChatClient() {
             {selectedCollection ? `Showing ${formatTerm(selectedCollection)}.` : 'Loading current course term…'}
           </span>
           <span>Use the course-term dropdown to switch semesters.</span>
-          <span aria-hidden="true">•</span>
-          <span>Data last updated: {formatLastUpdate(clock)}</span>
+          {selectedCollection && (
+            <>
+              <span aria-hidden="true">•</span>
+              <span>
+                {lastSynced[selectedCollection]
+                  ? `Data last synced with Testudo: ${formatSyncTime(lastSynced[selectedCollection])}`
+                  : 'This term is no longer refreshed automatically.'}
+              </span>
+            </>
+          )}
         </div>
         <form onSubmit={handleSubmit} className="flex space-x-4">
           <label className="sr-only" htmlFor="term-selector">Course term</label>

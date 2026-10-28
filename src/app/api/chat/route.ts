@@ -1,66 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import type { Message } from '../../actions';
+import { clientKey, parseChatRequest, RateLimiter } from '../../chat-request';
 import { QdrantManager } from '../../QdrantManager';
 
 const manager = new QdrantManager(
   process.env.QDRANT_API_KEY || '',
   process.env.QDRANT_LINK || 'http://localhost',
 );
-const TERM_COLLECTION_PATTERN = /^20\d{2}(01|08)$/;
+const rateLimiter = new RateLimiter(20, 60_000);
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const messages = body.messages as Message[] | undefined;
-
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return NextResponse.json(
-      { error: 'A non-empty messages array is required.' },
-      { status: 400 },
-    );
+  if (!rateLimiter.allow(clientKey(request.headers))) {
+    return NextResponse.json({ error: 'Too many messages. Please wait a minute and try again.' }, { status: 429 });
   }
 
-  const embedding = body.embedding as number[] | undefined;
-  if (!Array.isArray(embedding) || embedding.length !== 384) {
-    return NextResponse.json(
-      { error: 'A 384-dimensional MiniLM embedding is required.' },
-      { status: 400 },
-    );
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'The request body must be valid JSON.' }, { status: 400 });
   }
 
-  const collectionName = body.collection as string | undefined;
-  if (!collectionName || !TERM_COLLECTION_PATTERN.test(collectionName)) {
-    return NextResponse.json(
-      { error: 'A valid term collection is required.' },
-      { status: 400 },
-    );
+  const parsed = parseChatRequest(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
-  if (!await manager.collectionExists(collectionName)) {
-    return NextResponse.json(
-      { error: 'The selected term is not available.' },
-      { status: 404 },
-    );
+  const { messages, embedding, collection } = parsed.request;
+
+  try {
+    if (!await manager.collectionExists(collection)) {
+      return NextResponse.json({ error: 'The selected term is not available.' }, { status: 404 });
+    }
+  } catch (error) {
+    console.error('Error checking Qdrant collection:', error);
+    return NextResponse.json({ error: 'Course data is temporarily unavailable.' }, { status: 503 });
   }
 
-  const lastMessage = messages[messages.length - 1];
-  const conversationHistory = messages.slice(1, -1).map((message) => message.content);
   const encoder = new TextEncoder();
-
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const chunk of manager.chatStream(
-          collectionName,
-          lastMessage.content,
-          embedding,
-          conversationHistory,
-        )) {
+        for await (const chunk of manager.chatStream(collection, messages, embedding)) {
           if (request.signal.aborted) break;
           controller.enqueue(encoder.encode(chunk));
         }
         controller.close();
       } catch (error) {
-        console.error(`Error streaming chat from collection '${collectionName}':`, error);
+        console.error(`Error streaming chat from collection '${collection}':`, error);
         const status = typeof error === 'object' && error !== null && 'status' in error
           ? (error as { status?: number }).status
           : undefined;

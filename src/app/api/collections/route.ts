@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { QdrantManager } from '../../QdrantManager';
+import type { TermsResponse } from '../../types';
 
 const manager = new QdrantManager(
   process.env.QDRANT_API_KEY || '',
@@ -9,7 +10,11 @@ const manager = new QdrantManager(
 
 export async function GET() {
   try {
-    return NextResponse.json({ collections: await manager.listTermCollections() });
+    const [collections, lastSynced] = await Promise.all([
+      manager.listTermCollections(),
+      manager.lastSyncedByTerm(),
+    ]);
+    return NextResponse.json({ collections, lastSynced } satisfies TermsResponse);
   } catch (error) {
     console.error('Error listing Qdrant term collections:', error);
     return NextResponse.json(
