@@ -27,20 +27,22 @@ export async function POST(request: NextRequest) {
   }
   const { messages, embedding, collection } = parsed.request;
 
+  let availableTerms: string[];
   try {
-    if (!await manager.collectionExists(collection)) {
-      return NextResponse.json({ error: 'The selected term is not available.' }, { status: 404 });
-    }
+    availableTerms = await manager.listTermCollections();
   } catch (error) {
     console.error('Error checking Qdrant collection:', error);
     return NextResponse.json({ error: 'Course data is temporarily unavailable.' }, { status: 503 });
+  }
+  if (!availableTerms.includes(collection)) {
+    return NextResponse.json({ error: 'The selected term is not available.' }, { status: 404 });
   }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for await (const chunk of manager.chatStream(collection, messages, embedding)) {
+        for await (const chunk of manager.chatStream(collection, messages, embedding, availableTerms)) {
           if (request.signal.aborted) break;
           controller.enqueue(encoder.encode(chunk));
         }

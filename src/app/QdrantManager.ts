@@ -28,11 +28,6 @@ export class QdrantManager {
     this.client = new QdrantClient({ url: host, port, apiKey: qdrantApiKey });
   }
 
-  async collectionExists(collectionName: string): Promise<boolean> {
-    const { exists } = await this.client.collectionExists(collectionName);
-    return exists;
-  }
-
   async listTermCollections(): Promise<string[]> {
     const collections = await this.client.getCollections();
     return collections.collections
@@ -98,7 +93,7 @@ export class QdrantManager {
     return mergeDocuments(byCourse, semantic);
   }
 
-  async *chatStream(collectionName: string, messages: Message[], embedding: number[]): AsyncGenerator<string> {
+  async *chatStream(collectionName: string, messages: Message[], embedding: number[], availableTerms: string[]): AsyncGenerator<string> {
     const previous = messages.slice(0, -1);
     const question = messages[messages.length - 1].content;
 
@@ -115,7 +110,7 @@ export class QdrantManager {
         ...buildHistory(previous),
         { role: 'user', parts: [{ text: buildPrompt(collectionName, question, documents) }] },
       ],
-      config: { systemInstruction: systemInstruction(collectionName) },
+      config: { systemInstruction: systemInstruction(collectionName, availableTerms) },
     });
 
     for await (const chunk of response) {

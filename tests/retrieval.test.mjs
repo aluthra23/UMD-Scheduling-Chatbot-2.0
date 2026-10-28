@@ -80,6 +80,25 @@ test('accepts a valid chat request', () => {
   assert.equal(parseChatRequest(validBody()).ok, true);
 });
 
+test('accepts a long assistant reply in history (a big comparison table)', () => {
+  const body = { ...validBody(), messages: [user('Compare CMSC131 and CMSC132'), bot('x'.repeat(12_000)), user('who teaches it?')] };
+  assert.equal(parseChatRequest(body).ok, true);
+});
+
+test('rejects an over-long student message with a readable error', () => {
+  const result = parseChatRequest({ ...validBody(), messages: [user('x'.repeat(4001))] });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /under 4,000 characters/);
+});
+
+test('system instruction points to other terms in the dropdown', () => {
+  const instruction = systemInstruction('202701', ['202701', '202608', '202601']);
+  assert.match(instruction, /also has data for Fall 2026, Spring 2026/);
+  assert.match(instruction, /dropdown/);
+  assert.doesNotMatch(instruction, /also has data for Spring 2027/);
+  assert.match(systemInstruction('202701', ['202701']), /No other terms are available/);
+});
+
 test('rejects malformed chat requests', () => {
   const cases = {
     'not an object': null,

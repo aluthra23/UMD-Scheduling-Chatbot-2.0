@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { Message, TermsResponse } from '../types';
-import { formatTerm } from '../retrieval';
+import { formatTerm, MAX_HISTORY_CHARS } from '../retrieval';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
@@ -110,7 +110,9 @@ export default function ChatClient() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, userMessage].slice(-MESSAGES_SENT_PER_REQUEST),
+          messages: [...messages, userMessage].slice(-MESSAGES_SENT_PER_REQUEST).map(message =>
+            message.role === 'assistant' ? { ...message, content: message.content.slice(0, MAX_HISTORY_CHARS) } : message
+          ),
           embedding,
           collection: selectedCollection,
         }),

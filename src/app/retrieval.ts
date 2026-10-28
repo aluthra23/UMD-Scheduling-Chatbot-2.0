@@ -7,7 +7,7 @@ export const MAX_COURSE_CODES = 4;
 const COURSE_CODE_PATTERN = /\b([A-Z]{4})\s?(\d{3}[A-Z]?)\b/g;
 const CARRY_CODES_FROM_LAST_USER_MESSAGES = 2;
 const MAX_HISTORY_TURNS = 6;
-const MAX_HISTORY_CHARS = 4000;
+export const MAX_HISTORY_CHARS = 4000;
 
 export interface Turn {
   role: 'user' | 'model';
@@ -79,12 +79,18 @@ export function buildHistory(previous: Message[]): Turn[] {
   return recent;
 }
 
-export function systemInstruction(termId: string): string {
+export function systemInstruction(termId: string, availableTerms: string[] = []): string {
   const term = formatTerm(termId);
+  const otherTerms = availableTerms.filter((id) => id !== termId).map(formatTerm);
   return [
     'You are the UMD Scheduling Assistant. You help University of Maryland students with courses, sections,',
     'instructors, meeting times, seats, prerequisites, and general education (gen ed) requirements.',
     `The student has selected the ${term} term; every course and section you are given is from ${term}.`,
+    otherTerms.length
+      ? `This app also has data for ${otherTerms.join(', ')}. If the student asks about one of those terms, tell them to`
+        + ' switch terms with the course-term dropdown next to the message box; do not say that data is unavailable.'
+        + ' If they ask about any other term, say it is not available in this app yet.'
+      : 'No other terms are available in this app.',
     'Answer only from the course information in the latest message and the earlier conversation.',
     'If that information does not answer the question, say so and suggest checking Testudo',
     '(https://app.testudo.umd.edu/soc/). Never invent course numbers, sections, times, rooms, instructors, or seat counts.',
